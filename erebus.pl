@@ -40,6 +40,7 @@ use YAML::XS 'LoadFile';
 use Text::ANSITable;
 use Unicode::Homoglyph::Replace 'replace_homoglyphs';
 use Unicode::Truncate;
+use List::Util qw(first);
 
 my $yml;
 
@@ -174,6 +175,31 @@ my $discord_char_limit = 1980; # -20
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||_|\*|~|>)/;
+
+my @iso_codes = (
+"AF", "AX", "AL", "DZ", "AS", "AD", "AO", "AI", "AQ", "AG", "AR",
+"AM", "AW", "AU", "AT", "AZ", "BS", "BH", "BD", "BB", "BY", "BE",
+"BZ", "BJ", "BM", "BT", "BO", "BQ", "BA", "BW", "BV", "BR", "IO",
+"BN", "BG", "BF", "BI", "CV", "KH", "CM", "CA", "KY", "CF", "TD",
+"CL", "CN", "CX", "CC", "CO", "KM", "CG", "CD", "CK", "CR", "CI",
+"HR", "CU", "CW", "CY", "CZ", "DK", "DJ", "DM", "DO", "EC", "EG",
+"SV", "GQ", "ER", "EE", "ET", "FK", "FO", "FJ", "FI", "FR", "GF",
+"PF", "TF", "GA", "GM", "GE", "DE", "GH", "GI", "GR", "GL", "GD",
+"GP", "GU", "GT", "GG", "GN", "GW", "GY", "HT", "HM", "VA", "HN",
+"HK", "HU", "IS", "IN", "ID", "IR", "IQ", "IE", "IM", "IL", "IT",
+"JM", "JP", "JE", "JO", "KZ", "KE", "KI", "KP", "KR", "KW", "KG",
+"LA", "LV", "LB", "LS", "LR", "LY", "LI", "LT", "LU", "MO", "MK",
+"MG", "MW", "MY", "MV", "ML", "MT", "MH", "MQ", "MR", "MU", "YT",
+"MX", "FM", "MD", "MC", "MN", "ME", "MS", "MA", "MZ", "MM", "NA",
+"NR", "NP", "NL", "NC", "NZ", "NI", "NE", "NG", "NU", "NF", "MP",
+"NO", "OM", "PK", "PW", "PS", "PA", "PG", "PY", "PE", "PH", "PN",
+"PL", "PT", "PR", "QA", "RE", "RO", "RU", "RW", "BL", "SH", "KN",
+"LC", "MF", "PM", "VC", "WS", "SM", "ST", "SA", "SN", "RS", "SC",
+"SL", "SG", "SX", "SK", "SI", "SB", "SO", "ZA", "GS", "SS", "ES",
+"LK", "SD", "SR", "SJ", "SZ", "SE", "CH", "SY", "TW", "TJ", "TZ",
+"TH", "TL", "TG", "TK", "TO", "TT", "TN", "TR", "TM", "TC", "TV",
+"UG", "UA", "AE", "GB", "US", "UM", "UY", "UZ", "VU", "VE", "VN",
+"VG", "VI", "WF", "EH", "YE", "ZM", "ZW");
 
 my @qfont_unicode_glyphs = (
    "\N{U+0020}",     "\N{U+0020}",     "\N{U+2014}",     "\N{U+0020}",
@@ -367,6 +393,12 @@ my $xonstream = IO::Async::Socket->new(
 
                   $$players{$info[1]}{geo} = $r->{country}{iso_code} ? lc($r->{country}{iso_code}) : undef;
 
+		  if ($$config{baimod})
+	  	  {
+		     my $idx = first { $iso_codes[$_] eq $r->{country}{iso_code} } 0..$#iso_codes;
+		     rcon('setflag ' . $info[2] . ' ' . ($idx + 1)) if $idx;
+	          }
+
                   if ($$config{weather})
                   {
                      return if (exists $$q{weather}{$$players{$info[1]}{ip}} && $$q{weather}{$$players{$info[1]}{ip}}+10800 > time);
@@ -376,7 +408,7 @@ my $xonstream = IO::Async::Socket->new(
                      $$q{weather}{$$players{$info[1]}{ip}} = time;
                   }
 
-                  $msg = 'has joined the game' unless ($info[1] ~~ @lastplayers); # filter joins after map change to prevent spam
+		  $msg = 'has joined the game' unless ($info[1] ~~ @lastplayers); # filter joins after map change to prevent spam
                }
                else
                {
@@ -1132,7 +1164,7 @@ sub xonmsg ($nick, $msg)
    $nick = rconquote($nick);
    $msg  = rconquote($msg);
 
-   my $line = $$config{smbmod} ? 'sv_cmd ircmsg ^3(^8DISCORD^3) ^7' . $nick . '^3: ^7' . $msg : 'say "^7' . $nick . '^3: ^7' . $msg . '"';
+   my $line = ($$config{smbmod} || $$config{baimod}) ? 'sv_cmd ircmsg ^3(^8DISCORD^3) ^7' . $nick . '^3: ^7' . $msg : 'say "^7' . $nick . '^3: ^7' . $msg . '"';
 
    rcon($line);
 
